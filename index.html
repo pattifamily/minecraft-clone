@@ -217,11 +217,101 @@
             height: 44px;
             border-radius: 4px;
         }
+        
+        /* Mobile Joystick */
+        #joystick-zone {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 140px;
+            height: 140px;
+            display: none;
+            z-index: 100;
+            touch-action: none;
+        }
+        
+        #joystick-base {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            top: 10px;
+            left: 10px;
+        }
+        
+        #joystick-stick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 3px solid white;
+            border-radius: 50%;
+            top: 45px;
+            left: 45px;
+            transition: transform 0.1s;
+        }
+        
+        /* Mobile action buttons */
+        #mobile-actions {
+            position: fixed;
+            bottom: 40px;
+            right: 30px;
+            display: none;
+            gap: 15px;
+            z-index: 100;
+        }
+        
+        .mobile-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid white;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+        
+        .mobile-btn:active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+        
+        /* Detect touch device */
+        @media (pointer: coarse) {
+            #joystick-zone, #mobile-actions {
+                display: flex !important;
+            }
+            #instructions .controls {
+                display: none;
+            }
+            #instructions h1 {
+                font-size: 32px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="game-container"></div>
     <div id="crosshair"></div>
+    
+    <!-- Mobile Joystick -->
+    <div id="joystick-zone">
+        <div id="joystick-base">
+            <div id="joystick-stick"></div>
+        </div>
+    </div>
+    
+    <!-- Mobile Action Buttons -->
+    <div id="mobile-actions">
+        <button class="mobile-btn" id="btn-break">⛏️</button>
+        <button class="mobile-btn" id="btn-place">🧱</button>
+        <button class="mobile-btn" id="btn-jump">⬆️</button>
+    </div>
     
     <div id="hotbar"></div>
     
@@ -696,11 +786,122 @@
                 keys[e.code] = false;
             });
 
+            // Touch controls for mobile
+            setupTouchControls();
+
             // Window resize
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Touch control variables
+        let joystickActive = false;
+        let joystickStart = { x: 0, y: 0 };
+        let joystickDelta = { x: 0, y: 0 };
+        let touchLookActive = false;
+        let lastTouchPos = { x: 0, y: 0 };
+        
+        function setupTouchControls() {
+            const joystickZone = document.getElementById('joystick-zone');
+            const joystickStick = document.getElementById('joystick-stick');
+            const gameContainer = document.getElementById('game-container');
+            
+            // Joystick controls
+            joystickZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                joystickActive = true;
+                const touch = e.touches[0];
+                const rect = joystickZone.getBoundingClientRect();
+                joystickStart = { 
+                    x: rect.left + rect.width / 2, 
+                    y: rect.top + rect.height / 2 
+                };
+            });
+            
+            joystickZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!joystickActive) return;
+                
+                const touch = e.touches[0];
+                const maxDist = 40;
+                
+                let dx = touch.clientX - joystickStart.x;
+                let dy = touch.clientY - joystickStart.y;
+                
+                // Clamp to max distance
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > maxDist) {
+                    dx = (dx / dist) * maxDist;
+                    dy = (dy / dist) * maxDist;
+                }
+                
+                joystickDelta = { x: dx / maxDist, y: dy / maxDist };
+                joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            });
+            
+            joystickZone.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                joystickActive = false;
+                joystickDelta = { x: 0, y: 0 };
+                joystickStick.style.transform = 'translate(0, 0)';
+            });
+            
+            // Swipe to look around
+            gameContainer.addEventListener('touchstart', (e) => {
+                if (e.target.closest('#joystick-zone') || e.target.closest('#mobile-actions')) return;
+                
+                const touch = e.touches[0];
+                // Only track horizontal swipes for looking
+                touchLookActive = true;
+                lastTouchPos = { x: touch.clientX, y: touch.clientY };
+            });
+            
+            gameContainer.addEventListener('touchmove', (e) => {
+                if (!touchLookActive) return;
+                if (e.target.closest('#joystick-zone') || e.target.closest('#mobile-actions')) return;
+                
+                const touch = e.touches[0];
+                const dx = touch.clientX - lastTouchPos.x;
+                const dy = touch.clientY - lastTouchPos.y;
+                
+                player.rotation.y -= dx * 0.005;
+                player.rotation.x -= dy * 0.005;
+                player.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, player.rotation.x));
+                
+                lastTouchPos = { x: touch.clientX, y: touch.clientY };
+            });
+            
+            gameContainer.addEventListener('touchend', () => {
+                touchLookActive = false;
+            });
+            
+            // Mobile action buttons
+            document.getElementById('btn-break').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                breakBlock();
+                swingHand();
+            });
+            
+            document.getElementById('btn-place').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                placeBlock();
+            });
+            
+            document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (player.onGround) {
+                    player.velocity.y = CONFIG.JUMP_FORCE;
+                    player.onGround = false;
+                }
+            });
+            
+            // Auto-start on touch
+            document.getElementById('start-btn').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                document.getElementById('instructions').style.display = 'none';
             });
         }
 
@@ -799,10 +1000,17 @@
             const moveSpeed = keys['ShiftLeft'] ? CONFIG.SPRINT_SPEED : CONFIG.WALK_SPEED;
             const moveDir = new THREE.Vector3();
             
+            // Keyboard input
             if (keys['KeyW']) moveDir.z -= 1;
             if (keys['KeyS']) moveDir.z += 1;
             if (keys['KeyA']) moveDir.x -= 1;
             if (keys['KeyD']) moveDir.x += 1;
+            
+            // Joystick input
+            if (joystickActive) {
+                moveDir.x += joystickDelta.x;
+                moveDir.z += joystickDelta.y;
+            }
             
             // Apply rotation to movement direction
             moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y);

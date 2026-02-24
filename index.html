@@ -384,8 +384,10 @@
             const spawnZ = Math.floor(CONFIG.WORLD_SIZE / 2);
             let spawnY = getHighestBlock(spawnX, spawnZ);
             
-            // Make sure we spawn above ground with extra height
-            player.position.set(spawnX + 0.5, spawnY + 2, spawnZ + 0.5);
+            // Spawn ON the ground (not falling)
+            player.position.set(spawnX + 0.5, spawnY + CONFIG.PLAYER_HEIGHT, spawnZ + 0.5);
+            player.velocity.set(0, 0, 0);
+            player.onGround = true;
             
             // Initialize camera position immediately
             camera.position.copy(player.position);
@@ -811,14 +813,6 @@
             // Keep in bounds
             newPos.x = Math.max(0, Math.min(CONFIG.WORLD_SIZE - 0.1, newPos.x));
             newPos.z = Math.max(0, Math.min(CONFIG.WORLD_SIZE - 0.1, newPos.z));
-            
-            // Prevent falling through the world - find ground below
-            if (newPos.y < 1) {
-                const groundY = getHighestBlock(Math.floor(newPos.x), Math.floor(newPos.z));
-                newPos.y = groundY + CONFIG.PLAYER_HEIGHT;
-                player.velocity.y = 0;
-                player.onGround = true;
-            }
             
             player.position.copy(newPos);
             

@@ -258,8 +258,8 @@
             CHUNK_HEIGHT: 32,
             PLAYER_HEIGHT: 1.8,
             PLAYER_WIDTH: 0.6,
-            GRAVITY: 25,
-            JUMP_FORCE: 8,
+            GRAVITY: 20,
+            JUMP_FORCE: 6,
             WALK_SPEED: 5,
             SPRINT_SPEED: 8,
             MOUSE_SENSITIVITY: 0.002,
@@ -372,6 +372,9 @@
             sunLight.shadow.camera.bottom = -50;
             scene.add(sunLight);
 
+            // Create player hand
+            createHand();
+
             // Create block geometry and materials
             createBlockMaterials();
             createHighlightMesh();
@@ -441,6 +444,48 @@
             highlightMesh = new THREE.Mesh(geometry, material);
             scene.add(highlightMesh);
             highlightMesh.visible = false;
+        }
+
+        let hand;
+        let handAngle = 0;
+        let isAttacking = false;
+        
+        function createHand() {
+            // Simple box hand
+            const handGeo = new THREE.BoxGeometry(0.15, 0.15, 0.4);
+            const handMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // Brown
+            hand = new THREE.Mesh(handGeo, handMat);
+            
+            // Position hand in front of camera
+            hand.position.set(0.4, -0.3, -0.5);
+            camera.add(hand);
+            scene.add(camera);
+        }
+        
+        function swingHand() {
+            isAttacking = true;
+            handAngle = 0;
+        }
+        
+        function updateHand(deltaTime) {
+            if (!hand) return;
+            
+            if (isAttacking) {
+                handAngle += deltaTime * 15;
+                if (handAngle < Math.PI / 2) {
+                    hand.rotation.x = -handAngle;
+                } else if (handAngle < Math.PI) {
+                    hand.rotation.x = -(Math.PI - handAngle);
+                } else {
+                    hand.rotation.x = 0;
+                    isAttacking = false;
+                }
+            }
+            
+            // Slight bobbing when moving
+            if (player.velocity.x !== 0 || player.velocity.z !== 0) {
+                hand.position.y = -0.3 + Math.sin(Date.now() * 0.01) * 0.02;
+            }
         }
 
         // ==================== WORLD GENERATION ====================
@@ -703,6 +748,8 @@
             const target = getTargetBlock();
             if (!target) return;
             
+            swingHand(); // Swing the hand
+            
             const { x, y, z, id } = target.blockPos;
             
             if (id === BLOCKS.BEDROCK) return; // Can't break bedrock
@@ -718,28 +765,14 @@
             const { x, y, z } = target.blockPos;
             const direction = camera.getWorldDirection(new THREE.Vector3());
             
-            // Determine which face we're looking at
-            const hitPoint = target.point;
-            const faceX = Math.abs(direction.x) > 0.5 ? Math.sign(direction.x) : 0;
-            const faceY = Math.abs(direction.y) > 0.5 ? Math.sign(direction.y) : 0;
-            const faceZ = Math.abs(direction.z) > 0.5 ? Math.sign(direction.z) : 0;
+            // Simple face detection based on camera direction
+            const faceX = Math.abs(direction.x) > Math.abs(direction.y) && Math.abs(direction.x) > Math.abs(direction.z) ? Math.sign(direction.x) : 0;
+            const faceY = Math.abs(direction.y) > Math.abs(direction.x) && Math.abs(direction.y) > Math.abs(direction.z) ? Math.sign(direction.y) : 0;
+            const faceZ = Math.abs(direction.z) > Math.abs(direction.x) && Math.abs(direction.z) > Math.abs(direction.y) ? Math.sign(direction.z) : 0;
             
-            const newX = x + faceX;
-            const newY = y + faceY;
-            const newZ = z + faceZ;
-            
-            // Check if position is valid (not inside player)
-            const playerBox = new THREE.Box3(
-                player.position.clone().add(new THREE.Vector3(-CONFIG.PLAYER_WIDTH/2, 0, -CONFIG.PLAYER_WIDTH/2)),
-                player.position.clone().add(new THREE.Vector3(CONFIG.PLAYER_WIDTH/2, CONFIG.PLAYER_HEIGHT, CONFIG.PLAYER_WIDTH/2))
-            );
-            
-            const newBlockBox = new THREE.Box3(
-                new THREE.Vector3(newX, newY, newZ),
-                new THREE.Vector3(newX + 1, newY + 1, newZ + 1)
-            );
-            
-            if (playerBox.intersectsBox(newBlockBox)) return;
+            const newX = x + (faceX || 0);
+            const newY = y + (faceY || 0);
+            const newZ = z + (faceZ || 0);
             
             // Check bounds
             if (newX < 0 || newX >= CONFIG.WORLD_SIZE || 
@@ -972,6 +1005,7 @@
             
             updatePlayer(deltaTime);
             updateHighlight();
+            updateHand(deltaTime);
             
             renderer.render(scene, camera);
         }

@@ -754,6 +754,14 @@
         function updatePlayer(deltaTime) {
             if (!isPointerLocked) return;
 
+            // Fail-safe: always check if we're below ground and snap up
+            const groundY = getHighestBlock(Math.floor(player.position.x), Math.floor(player.position.z));
+            const minY = groundY + CONFIG.PLAYER_HEIGHT;
+            if (player.position.y < minY) {
+                player.position.y = minY;
+                player.velocity.y = 0;
+            }
+
             // Calculate movement direction
             const moveSpeed = keys['ShiftLeft'] ? CONFIG.SPRINT_SPEED : CONFIG.WALK_SPEED;
             const moveDir = new THREE.Vector3();

@@ -379,9 +379,17 @@
             // Generate world
             generateTerrain();
             
-            // Set spawn position
-            const spawnY = getHighestBlock(Math.floor(player.position.x), Math.floor(player.position.z));
-            player.position.y = spawnY + 3;
+            // Set spawn position - find a safe spot in the middle of the world
+            const spawnX = Math.floor(CONFIG.WORLD_SIZE / 2);
+            const spawnZ = Math.floor(CONFIG.WORLD_SIZE / 2);
+            let spawnY = getHighestBlock(spawnX, spawnZ);
+            
+            // Make sure we spawn above ground with extra height
+            player.position.set(spawnX + 0.5, spawnY + 2, spawnZ + 0.5);
+            
+            // Initialize camera position immediately
+            camera.position.copy(player.position);
+            camera.position.y += CONFIG.PLAYER_HEIGHT * 0.9;
 
             // Create UI
             createHotbar();

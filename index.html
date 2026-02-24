@@ -812,6 +812,14 @@
             newPos.x = Math.max(0, Math.min(CONFIG.WORLD_SIZE - 0.1, newPos.x));
             newPos.z = Math.max(0, Math.min(CONFIG.WORLD_SIZE - 0.1, newPos.z));
             
+            // Prevent falling through the world - find ground below
+            if (newPos.y < 1) {
+                const groundY = getHighestBlock(Math.floor(newPos.x), Math.floor(newPos.z));
+                newPos.y = groundY + CONFIG.PLAYER_HEIGHT;
+                player.velocity.y = 0;
+                player.onGround = true;
+            }
+            
             player.position.copy(newPos);
             
             // Update camera
